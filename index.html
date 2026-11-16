@@ -527,7 +527,7 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
 (function () {
   // ---- SETTINGS ----
   var CONFIG = {
-    VERIFY_ENDPOINT: '',   // optional: your backend URL that checks a task, replies {"verified": true}
+    VERIFY_ENDPOINT: '/api/verify',   // checks Telegram membership once TELEGRAM_BOT_TOKEN is set on Vercel
     SUBMIT_ENDPOINT: '',   // optional: URL that receives the user's progress as JSON
     STORAGE_KEY: 'vibez_airdrop_v1'
   };
@@ -646,13 +646,48 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
     m.className = 'tk-msg' + (ok ? ' ok' : '');
   }
 
+  // Real Telegram checks switch on only when /api/verify reports a configured bot; otherwise the demo check runs.
+  var telegramBotId = '';
+  if (CONFIG.VERIFY_ENDPOINT) {
+    fetch(CONFIG.VERIFY_ENDPOINT, { method: 'GET' })
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (d) {
+        if (!d.telegramBotId) return;
+        telegramBotId = String(d.telegramBotId);
+        var s = document.createElement('script');
+        s.src = 'https://telegram.org/js/telegram-widget.js?22';
+        s.async = true;
+        document.head.appendChild(s);
+      })
+      .catch(function () {});
+  }
+
+  function verifyTelegram() {
+    return new Promise(function (resolve, reject) {
+      if (!window.Telegram || !window.Telegram.Login) return reject(new Error('Telegram login not loaded'));
+      window.Telegram.Login.auth({ bot_id: telegramBotId, request_access: false }, function (user) {
+        if (!user) return resolve(false);
+        fetch(CONFIG.VERIFY_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: 'tg', telegram: user })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.verified) state.tg = Object.assign({}, state.tg, { telegramId: d.telegramId, telegramUsername: user.username || '' });
+            resolve(!!d.verified);
+          })
+          .catch(reject);
+      });
+    });
+  }
+
   /** @param {string} id @param {HTMLElement} btn @param {Element} card */
   function verify(id, btn, card) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Checking…';
-    var check = CONFIG.VERIFY_ENDPOINT
-      ? fetch(CONFIG.VERIFY_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: id }) })
-          .then(function (r) { return r.json(); }).then(function (d) { return !!d.verified; })
+    var check = id === 'tg' && telegramBotId
+      ? verifyTelegram()
       : new Promise(function (res) { setTimeout(function () { res(true); }, 1800); });
     check.then(function (ok) {
       if (ok) {
