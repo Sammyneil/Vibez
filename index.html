@@ -690,8 +690,8 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
   function verify(id, btn, card) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Checking…';
-    var check = id === 'tg' && telegramBotId
-      ? verifyTelegram()
+    var check = id === 'tg'
+      ? (telegramBotId ? verifyTelegram() : Promise.resolve(false))
       : new Promise(function (res) { setTimeout(function () { res(true); }, 1800); });
     check.then(function (ok) {
       if (ok) {
