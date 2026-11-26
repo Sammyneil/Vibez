@@ -1,0 +1,86 @@
+name: Safe X reply verification
+
+on:
+  push:
+    branches:
+      - test/x-reply-verification-safe-route
+    paths:
+      - .github/workflows/safe-x-reply-verification.yml
+  workflow_dispatch:
+    inputs:
+      comment_url:
+        description: X reply URL to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/test/x-reply-verification-safe-route'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate X reply without persistence
+        env:
+          X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
+          COMMENT_URL: ${{ github.event.inputs.comment_url || 'https://x.com/ZaraAlmeira/status/2125691151370072317' }}
+        run: |
+          node <<'NODE'
+          const token = process.env.X_API_BEARER_TOKEN;
+          const value = process.env.COMMENT_URL;
+          if (!token) {
+            console.error('Missing repository secret: X_API_BEARER_TOKEN');
+            process.exit(1);
+          }
+
+          function parseCommentUrl(input) {
+            try {
+              const url = new URL(input);
+              const host = url.hostname.toLowerCase().replace(/^(www|mobile)\\./, '');
+              const match = url.pathname.match(/^\\/([A-Za-z0-9_]{1,15})\\/status\\/(\\d{5,25})(?:\\/.*)?$/);
+              if ((host !== 'x.com' && host !== 'twitter.com') || !match) return null;
+              return { username: match[1], id: match[2] };
+            } catch {
+              return null;
+            }
+          }
+
+          (async () => {
+            const parsed = parseCommentUrl(value);
+            if (!parsed) throw new Error('Invalid X reply URL.');
+
+            const endpoint = new URL('https://api.x.com/2/tweets/' + encodeURIComponent(parsed.id));
+            endpoint.searchParams.set('tweet.fields', 'author_id,referenced_tweets');
+            endpoint.searchParams.set('expansions', 'author_id');
+            endpoint.searchParams.set('user.fields', 'username');
+
+            const response = await fetch(endpoint, {
+              headers: { Authorization: 'Bearer ' + token }
+            });
+            if (response.status === 404) throw new Error('X post not found.');
+            if (!response.ok) throw new Error('X API request failed with HTTP ' + response.status + '.');
+            const payload = await response.json();
+            const tweet = payload && payload.data;
+            const repliedTo = tweet && Array.isArray(tweet.referenced_tweets)
+              ? tweet.referenced_tweets.find(item => item.type === 'replied_to')
+              : null;
+            const author = payload && payload.includes && Array.isArray(payload.includes.users)
+              ? payload.includes.users.find(user => user.id === tweet.author_id)
+              : null;
+
+            if (!tweet || !repliedTo || repliedTo.id !== '2125564862365364671') {
+              throw new Error('The post is not a direct reply to the official Vibez launch post.');
+            }
+            if (!author || author.username.toLowerCase() !== parsed.username.toLowerCase()) {
+              throw new Error('The username in the URL does not match the post author.');
+            }
+            console.log('PASS: X reply verified against the official Vibez launch post.');
+            console.log('PASS: URL username matches the X post author.');
+            console.log('PASS: Non-persistent test; no airdrop entry or database write was performed.');
+          })().catch(error => {
+            console.error('FAIL:', error.message);
+            process.exit(1);
+          });
+          NODE
