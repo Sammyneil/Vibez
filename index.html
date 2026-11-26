@@ -433,7 +433,13 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
           <div class="tk-list" id="tk-list"></div>
           <div class="tk-final" id="tk-final" hidden>
             <h3>All tasks complete!</h3>
-            <p>Your progress is saved in this browser. Email and wallet details are not submitted to the team until a submission endpoint is configured.</p>
+            <p>Submit your entry to send your email, public Solana wallet address and comment link to the Vibez team for airdrop administration.</p>
+            <label style="display:flex;gap:.65rem;align-items:flex-start;text-align:left;margin:1rem 0;font-size:.85rem;line-height:1.5;color:var(--ink2)">
+              <input id="tk-consent" type="checkbox" style="margin-top:.2rem;flex-shrink:0">
+              <span>I agree that Vibez may store my email address and public wallet address to administer this airdrop and send related project updates.</span>
+            </label>
+            <button class="tk-btn primary" id="tk-submit-btn" type="button"><i class="fa-solid fa-paper-plane"></i> Submit my airdrop entry</button>
+            <p id="tk-submit-status" class="tk-msg" role="status" aria-live="polite"></p>
           </div>
           <p class="tk-foot"><i class="fa-solid fa-shield-halved"></i>Only share your public wallet address. Never share your seed phrase or private key with anyone.</p>
         </div>
