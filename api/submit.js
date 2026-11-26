@@ -185,7 +185,8 @@ module.exports = async function handler(req, res) {
       method: 'POST',
       headers: {
         apikey: apiKey,
-        Authorization: 'Bearer ' + apiKey,
+        // New sb_secret_* API keys are not JWTs and must not be sent as Bearer tokens.
+        ...(secretKey ? {} : { Authorization: 'Bearer ' + apiKey }),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
