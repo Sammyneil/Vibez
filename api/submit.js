@@ -8,7 +8,7 @@ function isValidTelegramLogin(user, token) {
     .filter((key) => key !== 'hash' && user[key] !== undefined && user[key] !== null)
     .sort()
     .map((key) => `${key}=${user[key]}`)
-    .join('\\n');
+    .join('\n');
   const secret = crypto.createHash('sha256').update(token).digest();
   const expected = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
   const given = Buffer.from(user.hash, 'utf8');
@@ -117,8 +117,10 @@ module.exports = async function handler(req, res) {
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  if (!supabaseUrl || !serviceKey) {
+  const secretKey = process.env.SUPABASE_SECRET_KEY || '';
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const apiKey = secretKey || serviceRoleKey;
+  if (!supabaseUrl || !apiKey) {
     return res.status(503).json({ ok: false, error: 'Participant storage is not configured. Please try again later.' });
   }
 
@@ -137,8 +139,8 @@ module.exports = async function handler(req, res) {
       {
         method: 'POST',
         headers: {
-          apikey: serviceKey,
-          Authorization: 'Bearer ' + serviceKey,
+          apikey: apiKey,
+          ...(secretKey ? {} : { Authorization: 'Bearer ' + apiKey }),
           'Content-Type': 'application/json',
           Prefer: 'resolution=merge-duplicates,return=representation'
         },
