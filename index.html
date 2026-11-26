@@ -432,8 +432,8 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
           </div>
           <div class="tk-list" id="tk-list"></div>
           <div class="tk-final" id="tk-final" hidden>
-            <h3>🎉 All tasks complete!</h3>
-            <p>You're entered for a share of the $VIBEZ airdrop. You can update your email or wallet any time above.</p>
+            <h3>All tasks complete!</h3>
+            <p>Your progress is saved in this browser. Email and wallet details are not submitted to the team until a submission endpoint is configured.</p>
           </div>
           <p class="tk-foot"><i class="fa-solid fa-shield-halved"></i>Only share your public wallet address. Never share your seed phrase or private key with anyone.</p>
         </div>
@@ -527,6 +527,7 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
   });
 </script>
 
+<script src="/airdrop.js"></script>
 <script>
 (function () {
   // ---- SETTINGS ----
@@ -549,7 +550,7 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
   ];
 
   var listEl = document.getElementById('tk-list');
-  if (!listEl) return;
+  if (!listEl || window.vibezAirdropV2) return;
   var editing = {};
   var state = load();
 
