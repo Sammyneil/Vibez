@@ -38,8 +38,8 @@ jobs:
           function parseCommentUrl(input) {
             try {
               const url = new URL(input);
-              const host = url.hostname.toLowerCase().replace(/^(www|mobile)\\./, '');
-              const match = url.pathname.match(/^\\/([A-Za-z0-9_]{1,15})\\/status\\/(\\d{5,25})(?:\\/.*)?$/);
+              const host = url.hostname.toLowerCase().replace(/^(www|mobile)\./, '');
+              const match = url.pathname.match(/^\/([A-Za-z0-9_]{1,15})\/status\/(\d{5,25})(?:\/.*)?$/);
               if ((host !== 'x.com' && host !== 'twitter.com') || !match) return null;
               return { username: match[1], id: match[2] };
             } catch {
