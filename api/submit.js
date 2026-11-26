@@ -1,3 +1,32 @@
+const crypto = require('crypto');
+const MEMBER_STATUSES = new Set(['creator', 'administrator', 'member']);
+const MAX_LOGIN_AGE_SECONDS = 24 * 60 * 60;
+
+function isValidTelegramLogin(user, token) {
+  if (!user || typeof user !== 'object' || typeof user.hash !== 'string') return false;
+  const checkString = Object.keys(user)
+    .filter((key) => key !== 'hash' && user[key] !== undefined && user[key] !== null)
+    .sort()
+    .map((key) => `${key}=${user[key]}`)
+    .join('\\n');
+  const secret = crypto.createHash('sha256').update(token).digest();
+  const expected = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
+  const given = Buffer.from(user.hash, 'utf8');
+  const wanted = Buffer.from(expected, 'utf8');
+  if (given.length !== wanted.length || !crypto.timingSafeEqual(given, wanted)) return false;
+  const age = Math.floor(Date.now() / 1000) - Number(user.auth_date);
+  return Number.isFinite(age) && age >= 0 && age <= MAX_LOGIN_AGE_SECONDS;
+}
+
+async function isTelegramMember(token, chatId, userId) {
+  const url = `https://api.telegram.org/bot${token}/getChatMember?chat_id=${encodeURIComponent(chatId)}&user_id=${encodeURIComponent(userId)}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok || !data.ok) return false;
+  return MEMBER_STATUSES.has(data.result.status) ||
+    (data.result.status === 'restricted' && data.result.is_member === true);
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
@@ -72,6 +101,19 @@ module.exports = async function handler(req, res) {
   }
   if (body.consent !== true) {
     return res.status(400).json({ ok: false, error: 'Consent is required to submit your entry.' });
+  }
+
+  const telegramToken = process.env.TELEGRAM_BOT_TOKEN || '';
+  const telegramChatId = process.env.TELEGRAM_CHAT_ID || '@vibecoinonsoll';
+  if (!telegramToken || !isValidTelegramLogin(body.telegramAuth, telegramToken)) {
+    return res.status(401).json({ ok: false, error: 'Please complete Telegram verification again before submitting.' });
+  }
+  try {
+    const member = await isTelegramMember(telegramToken, telegramChatId, body.telegramAuth.id);
+    if (!member) return res.status(403).json({ ok: false, error: 'Telegram channel membership could not be confirmed.' });
+  } catch (error) {
+    console.error('Telegram submission verification failed:', error && error.message);
+    return res.status(502).json({ ok: false, error: 'Could not verify Telegram membership. Please try again.' });
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
