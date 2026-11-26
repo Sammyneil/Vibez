@@ -23,14 +23,6 @@
   var state = load();
   var telegramBotId = '';
 
-  var style = document.createElement('style');
-  style.textContent = '.tk-check{margin-top:1.2rem;text-align:center}.tk-check-list{list-style:none;margin-top:1rem;text-align:left;display:flex;flex-direction:column;gap:.5rem}.tk-check-list li{display:flex;gap:.6rem;align-items:flex-start;font-size:.9rem;font-weight:600;padding:.65rem .85rem;border-radius:12px;border:1px solid rgba(11,11,18,.1);background:#fff}.tk-check-list li.ok i{color:#0a7fd6}.tk-check-list li.bad i{color:#c2410c}.tk-check-list li.sum{background:#faf7ff;border:2px solid #0b0b12}';
-  document.head.appendChild(style);
-  var checkWrap = document.createElement('div');
-  checkWrap.className = 'tk-check';
-  checkWrap.innerHTML = '<button class="tk-btn primary" type="button" id="tk-check-btn"><i class="fa-solid fa-clipboard-check"></i> Run verification check</button><ul class="tk-check-list" id="tk-check-list" aria-live="polite"></ul>';
-  listEl.parentNode.insertBefore(checkWrap, document.getElementById('tk-final'));
-
   function load() {
     try { return JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || {}; } catch (e) { return {}; }
   }
@@ -243,26 +235,6 @@
     });
   }
 
-  function runCheck() {
-    var rows = [];
-    var passed = 0;
-    TASKS.forEach(function (task) {
-      var entry = state[task.id] || {};
-      var ok = false;
-      var message = '';
-      if (task.type === 'link' || task.type === 'telegram') {
-        ok = !!entry.verified;
-        message = ok ? (task.type === 'telegram' ? 'membership verified' : 'self-confirmed') : (allOpened(task, entry) ? 'press the completion button' : 'not completed yet');
-      } else if (!entry.saved) message = 'not submitted yet';
-      else { var result = validate(task, entry.value); ok = result.ok; message = ok ? 'looks good' : result.msg; }
-      if (ok) passed++;
-      rows.push('<li class="' + (ok ? 'ok' : 'bad') + '"><i class="fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle-xmark') + '"></i><span>' + task.title + ': ' + message + '</span></li>');
-    });
-    var all = passed === TASKS.length;
-    var summary = '<li class="sum ' + (all ? 'ok' : 'bad') + '"><i class="fa-solid ' + (all ? 'fa-circle-check' : 'fa-triangle-exclamation') + '"></i><span>' + (all ? 'All ' + TASKS.length + ' tasks complete. Your entry is recorded in this browser.' : passed + ' of ' + TASKS.length + ' tasks complete. Fix the items marked below.') + '</span></li>';
-    document.getElementById('tk-check-list').innerHTML = summary + rows.join('');
-  }
-
   listEl.addEventListener('click', function (event) {
     var element = event.target.closest('[data-action]');
     if (!element) return;
@@ -291,7 +263,6 @@
       submitValue(input.closest('.tk-task').getAttribute('data-id'));
     }
   });
-  document.getElementById('tk-check-btn').addEventListener('click', runCheck);
   document.getElementById('tk-submit-btn').addEventListener('click', submitEntry);
   loadTelegramWidget();
   render();
