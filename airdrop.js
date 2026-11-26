@@ -153,7 +153,7 @@
         if (!user) return resolve(false);
         fetch(CONFIG.VERIFY_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'tg', telegram: user }) })
           .then(function (response) { return response.json(); }).then(function (data) {
-            if (data.verified) state.tg = Object.assign({}, state.tg, { telegramId: data.telegramId, telegramUsername: user.username || '', verified: true });
+            if (data.verified) state.tg = Object.assign({}, state.tg, { telegramId: data.telegramId, telegramUsername: user.username || '', telegramAuth: user, verified: true });
             resolve(!!data.verified);
           }).catch(reject);
       });
@@ -220,7 +220,8 @@
         commentUrl: commentUrl,
         xFollowSelfReported: !!(state.x || {}).verified,
         xLikeRepostSelfReported: !!(state.rt || {}).verified,
-        consent: true
+        consent: true,
+        telegramAuth: (state.tg || {}).telegramAuth
       })
     }).then(function (response) {
       return response.json().then(function (data) {
