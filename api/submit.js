@@ -261,3 +261,6 @@ module.exports = async function handler(req, res) {
 function safeParse(text) {
   try { return JSON.parse(text); } catch { return {}; }
 }
+
+// Export the exact production verifier for the isolated, non-persistent test route.
+module.exports.verifyXReply = verifyXReply;
