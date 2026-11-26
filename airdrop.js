@@ -2,7 +2,9 @@
   var CONFIG = {
     VERIFY_ENDPOINT: '/api/verify',
     SUBMIT_ENDPOINT: '/api/submit',
-    STORAGE_KEY: 'vibez_airdrop_v2'
+    STORAGE_KEY: 'vibez_airdrop_progress_v3',
+    LEGACY_STORAGE_KEY: 'vibez_airdrop_v2',
+    PROGRESS_TTL_MS: 30 * 24 * 60 * 60 * 1000
   };
   var X_ACCOUNT = 'Vibez_coin';
   var POST_ID = '2125564862365364671';
@@ -25,20 +27,53 @@
   var telegramAuth = null;
 
   function load() {
+    var saved = {};
     try {
-      var saved = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || {};
-      // Never retain Telegram's signed login payload (especially its hash) across page loads.
-      if (saved.tg && saved.tg.telegramAuth) {
-        delete saved.tg.telegramAuth;
-        saved.tg.verified = false;
-        try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(saved)); } catch (e) {}
-      }
-      return saved;
-    } catch (e) { return {}; }
+      // Migrate only non-identifying progress from the old store, then delete it.
+      var raw = localStorage.getItem(CONFIG.STORAGE_KEY) || localStorage.getItem(CONFIG.LEGACY_STORAGE_KEY);
+      saved = raw ? JSON.parse(raw) : {};
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) saved = {};
+      var age = Date.now() - Number(saved.savedAt || 0);
+      if (saved.savedAt && (!Number.isFinite(age) || age > CONFIG.PROGRESS_TTL_MS || age < 0)) saved = {};
+      var clean = { version: 3, savedAt: Date.now() };
+      ['x', 'rt'].forEach(function (id) {
+        var entry = saved[id] && typeof saved[id] === 'object' ? saved[id] : {};
+        var opened = {};
+        if (entry.opened && typeof entry.opened === 'object') {
+          Object.keys(entry.opened).slice(0, 4).forEach(function (key) {
+            if (/^\\d{1,2}$/.test(key) && entry.opened[key] === true) opened[key] = true;
+          });
+        }
+        clean[id] = { verified: entry.verified === true, opened: opened };
+      });
+      clean.submitted = saved.submitted === true;
+      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(clean));
+      localStorage.removeItem(CONFIG.LEGACY_STORAGE_KEY);
+      return clean;
+    } catch (e) {
+      // Storage can be disabled or full; the form still works in memory.
+      try { localStorage.removeItem(CONFIG.LEGACY_STORAGE_KEY); } catch (ignore) {}
+      return { version: 3 };
+    }
   }
   function save() {
-    try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
-
+    // Persist only non-identifying task progress. Never serialize participant fields
+    // (email, wallet, reply URL) or Telegram identity/authentication data.
+    var clean = { version: 3, savedAt: Date.now(), submitted: state.submitted === true };
+    ['x', 'rt'].forEach(function (id) {
+      var entry = state[id] && typeof state[id] === 'object' ? state[id] : {};
+      var opened = {};
+      if (entry.opened && typeof entry.opened === 'object') {
+        Object.keys(entry.opened).slice(0, 4).forEach(function (key) {
+          if (/^\\d{1,2}$/.test(key) && entry.opened[key] === true) opened[key] = true;
+        });
+      }
+      clean[id] = { verified: entry.verified === true, opened: opened };
+    });
+    try {
+      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(clean));
+      localStorage.removeItem(CONFIG.LEGACY_STORAGE_KEY);
+    } catch (e) {}
   }
   function getTask(id) { return TASKS.filter(function (task) { return task.id === id; })[0]; }
   function isEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value); }
@@ -235,9 +270,11 @@
     }).then(function (response) {
       return response.json().then(function (data) {
         if (!response.ok || !data.ok) throw new Error(data.error || 'Submission failed. Please try again.');
-        state = { submitted: true, submittedAt: data.submittedAt || new Date().toISOString() };
+        state = { submitted: true };
+        drafts = {};
+        editing = {};
         telegramAuth = null;
-        try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+        save();
         button.innerHTML = '<i class="fa-solid fa-circle-check"></i> Entry submitted';
         status.textContent = 'Your entry has been received by Vibez. You can close this page.';
       });
