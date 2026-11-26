@@ -41,17 +41,22 @@
   function getTask(id) { return TASKS.filter(function (task) { return task.id === id; })[0]; }
   function isEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value); }
   function isSolAddress(value) {
-    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
-    var alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    var bytes = [0];
-    for (var i = 0; i < value.length; i++) {
-      var carry = alphabet.indexOf(value[i]);
-      for (var j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 255; carry >>= 8; }
-      while (carry > 0) { bytes.push(carry & 255); carry >>= 8; }
-    }
-    for (var k = 0; k < value.length && value[k] === '1'; k++) bytes.push(0);
-    return bytes.length === 32;
+  if (typeof value !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let decoded = 0n;
+  for (const char of value) {
+    const digit = alphabet.indexOf(char);
+    if (digit < 0) return false;
+    decoded = decoded * 58n + BigInt(digit);
   }
+  let byteLength = 0;
+  while (decoded > 0n) {
+    byteLength++;
+    decoded >>= 8n;
+  }
+  for (let i = 0; i < value.length && value[i] === '1'; i++) byteLength++;
+  return byteLength === 32;
+}
   function compareIds(a, b) { return a.length !== b.length ? (a.length < b.length ? -1 : 1) : (a === b ? 0 : (a < b ? -1 : 1)); }
   function bad(message) { return { ok: false, msg: message, value: '', user: '' }; }
   function checkComment(raw) {
