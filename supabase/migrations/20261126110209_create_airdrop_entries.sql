@@ -1,5 +1,5 @@
 -- Vibez airdrop participant submissions.
--- Apply this migration in the Supabase SQL Editor before enabling live submissions.
+-- Only the server-side service role may access participant records.
 
 create table if not exists public.airdrop_entries (
   id uuid primary key default gen_random_uuid(),
@@ -17,8 +17,6 @@ create index if not exists airdrop_entries_created_at_idx
   on public.airdrop_entries (created_at desc);
 
 alter table public.airdrop_entries enable row level security;
-
--- Only the server-side service role may access participant records.
 revoke all on table public.airdrop_entries from anon, authenticated;
 grant all on table public.airdrop_entries to service_role;
 
