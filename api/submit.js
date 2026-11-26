@@ -48,14 +48,70 @@ function isSolanaAddress(value) {
   return byteLength === 32;
 }
 
-function validCommentUrl(value) {
+function parseCommentUrl(value) {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase().replace(/^(www|mobile)\./, '');
-    return (host === 'x.com' || host === 'twitter.com') &&
-      /^\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}(?:\/.*)?$/.test(url.pathname);
+    const match = url.pathname.match(/^\/([A-Za-z0-9_]{1,15})\/status\/(\d{5,25})(?:\/.*)?$/);
+    if ((host !== 'x.com' && host !== 'twitter.com') || !match) return null;
+    return { username: match[1], id: match[2] };
   } catch {
-    return false;
+    return null;
+  }
+}
+
+async function verifyXReply(value) {
+  const parsed = parseCommentUrl(value);
+  if (!parsed) return { ok: false, status: 400, error: 'Please provide a valid X comment link.' };
+
+  const bearerToken = process.env.X_API_BEARER_TOKEN || '';
+  if (!bearerToken) {
+    return { ok: false, status: 503, error: 'X reply verification is not configured yet. Please try again later.' };
+  }
+
+  const endpoint = new URL('https://api.x.com/2/tweets/' + encodeURIComponent(parsed.id));
+  endpoint.searchParams.set('tweet.fields', 'author_id,referenced_tweets');
+  endpoint.searchParams.set('expansions', 'author_id');
+  endpoint.searchParams.set('user.fields', 'username');
+
+  try {
+    const response = await fetch(endpoint.toString(), {
+      headers: { Authorization: 'Bearer ' + bearerToken }
+    });
+    if (response.status === 404) {
+      return { ok: false, status: 400, error: 'That X post could not be found. Check the comment link and try again.' };
+    }
+    if (response.status === 401 || response.status === 403) {
+      console.error('X API rejected the reply-verification credentials:', response.status);
+      return { ok: false, status: 503, error: 'X reply verification is temporarily unavailable.' };
+    }
+    if (response.status === 429 || response.status >= 500) {
+      return { ok: false, status: 503, error: 'X reply verification is temporarily unavailable. Please try again.' };
+    }
+    if (!response.ok) {
+      console.error('X reply verification failed with status:', response.status);
+      return { ok: false, status: 502, error: 'Could not verify that X reply. Please try again.' };
+    }
+
+    const payload = await response.json();
+    const tweet = payload && payload.data;
+    const repliedTo = tweet && Array.isArray(tweet.referenced_tweets)
+      ? tweet.referenced_tweets.find((reference) => reference.type === 'replied_to')
+      : null;
+    const author = payload && payload.includes && Array.isArray(payload.includes.users)
+      ? payload.includes.users.find((user) => user.id === tweet.author_id)
+      : null;
+
+    if (!tweet || !repliedTo || repliedTo.id !== '2125564862365364671') {
+      return { ok: false, status: 400, error: 'Your X post must be a direct reply to the official Vibez launch post.' };
+    }
+    if (!author || author.username.toLowerCase() !== parsed.username.toLowerCase()) {
+      return { ok: false, status: 400, error: 'The X username in your link does not match the post author.' };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error('X reply verification request failed:', error && error.message);
+    return { ok: false, status: 503, error: 'X reply verification is temporarily unavailable. Please try again.' };
   }
 }
 
@@ -95,8 +151,9 @@ module.exports = async function handler(req, res) {
   if (!isSolanaAddress(walletAddress)) {
     return res.status(400).json({ ok: false, error: 'Please provide a valid Solana wallet address.' });
   }
-  if (!validCommentUrl(commentUrl)) {
-    return res.status(400).json({ ok: false, error: 'Please provide a valid X comment link.' });
+  const xReply = await verifyXReply(commentUrl);
+  if (!xReply.ok) {
+    return res.status(xReply.status).json({ ok: false, error: xReply.error });
   }
   if (body.consent !== true) {
     return res.status(400).json({ ok: false, error: 'Consent is required to submit your entry.' });
