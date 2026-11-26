@@ -751,5 +751,66 @@ footer::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;back
   render();
 })();
 </script>
+
+<!-- VIBEZ MOTION ENHANCEMENTS -->
+<script>
+(function () {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  function qa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  var css = `
+@keyframes moUp{from{opacity:0;transform:translateY(32px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes moDrift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(36px,-44px) scale(1.12)}}
+@keyframes moFlow{to{background-position:200% 0}}
+@keyframes moGrad{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes moGlow{0%,100%{box-shadow:0 4px 14px rgba(192,38,211,.4)}50%{box-shadow:0 4px 26px rgba(0,194,255,.65)}}
+@keyframes moRocket{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(2px,-3px) rotate(-6deg)}}
+@keyframes moSweep{from{left:-70%}to{left:130%}}
+@keyframes moBar{to{transform:translateX(100%)}}
+@keyframes moPop{0%{transform:scale(.96)}50%{transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes moDrop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes moFall{to{transform:translateY(108vh) rotate(720deg);opacity:.9}}
+@keyframes moWiggle{0%,100%{transform:rotate(0)}30%{transform:rotate(-14deg) scale(1.15)}60%{transform:rotate(10deg) scale(1.1)}}
+.mo-pre{opacity:0}.mo-in{animation:moUp .8s cubic-bezier(.22,.8,.3,1) backwards}
+.orb{animation:moDrift 14s ease-in-out infinite}.orb:nth-child(2){animation-duration:19s;animation-direction:reverse}
+header{transition:box-shadow .3s}header.mo-scrolled{box-shadow:0 8px 24px rgba(11,11,18,.14)}
+header::after,footer::before{background:linear-gradient(90deg,#ff6a00,#ff2fa6,#7b2cff,#00c2ff,#ff6a00);background-size:200% 100%;animation:moFlow 7s linear infinite}
+#mo-progress{position:fixed;top:0;left:0;width:100%;height:3px;z-index:60;transform-origin:0 50%;transform:scaleX(0);background:linear-gradient(90deg,#ff6a00,#ff2fa6,#7b2cff,#00c2ff);pointer-events:none}
+.g1,.g2,.g3{background-size:200% 200%;animation:moGrad 6s ease-in-out infinite}
+.logo-box{animation:moGlow 3s ease-in-out infinite}.btn-neon .fa-rocket{animation:moRocket 2.6s ease-in-out infinite}
+.nav-links a{position:relative}.nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;border-radius:2px;background:linear-gradient(90deg,#ff6a00,#ff2fa6,#7b2cff);transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.nav-links a:hover::after,.nav-links a.mo-active::after{transform:scaleX(1)}.nav-links a.mo-active,.mobile-menu a.mo-active{color:#c4007f}.mobile-menu.open{animation:moDrop .28s ease}
+.btn-neon,.btn-copy,.btn-blue,.tk-btn.primary{position:relative;overflow:hidden}
+.btn-neon::after,.btn-copy::after,.btn-blue::after,.tk-btn.primary::after{content:"";position:absolute;top:0;left:-70%;width:45%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);pointer-events:none}
+.btn-neon::after,.btn-copy::after{animation:moSweep 4.5s ease-in-out 1.5s infinite}.btn-neon:hover::after,.btn-copy:hover::after,.btn-blue:hover::after,.tk-btn.primary:hover::after{animation:moSweep .8s ease}
+.ficon{transition:transform .3s}.tcard:hover .ficon,.feature:hover .ficon{transform:rotate(-8deg) scale(1.12)}
+.feature{transition:transform .25s}.feature:hover{transform:translateX(5px)}.phase{transition:transform .25s,box-shadow .25s}.phase:hover{transform:translateY(-5px)}.phase:hover .ph-icon{animation:moWiggle .6s}.tval{font-variant-numeric:tabular-nums}
+.tk-bar span{position:relative;overflow:hidden}.tk-bar span::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.65),transparent);transform:translateX(-100%);animation:moBar 2.2s ease-in-out infinite}
+.mo-pop{animation:moPop .6s cubic-bezier(.34,1.56,.64,1)}.mo-conf-wrap{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:70}.mo-conf{position:absolute;top:-16px;width:9px;height:15px;border-radius:2px;animation:moFall linear forwards}
+`;
+  var styleEl = document.createElement('style'); styleEl.textContent = css; document.head.appendChild(styleEl);
+  qa('.hero > *').forEach(function (el,i) { el.style.animationDelay=(100+i*110)+'ms'; el.classList.add('mo-in'); el.addEventListener('animationend',function(e){if(e.target===el){el.classList.remove('mo-in');el.style.animationDelay='';}}); });
+  function countUp(el) {
+    var target=parseInt(el.textContent.replace(/,/g,''),10); if(!target)return;
+    var dur=1600,t0=null; el.textContent='0';
+    function step(ts){if(t0===null)t0=ts;var p=Math.min((ts-t0)/dur,1),eased=1-Math.pow(1-p,3);el.textContent=Math.round(target*eased).toLocaleString('en-US');if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  }
+  if ('IntersectionObserver' in window) {
+    var revealSel=['.section-head','.panel','.feature','.token-card','.tcard','.phase','.tk-panel','.join','.foot > *'];
+    var io=new IntersectionObserver(function(entries){entries.forEach(function(en){if(!en.isIntersecting)return;var el=en.target;io.unobserve(el);el.classList.remove('mo-pre');el.classList.add('mo-in');el.addEventListener('animationend',function(e){if(e.target===el){el.classList.remove('mo-in');el.style.animationDelay='';}});var v=el.classList.contains('tcard')?el.querySelector('.tval'):null;if(v&&/^[\d,]+$/.test(v.textContent.trim()))countUp(v);});},{threshold:.12,rootMargin:'0px 0px -8% 0px'});
+    revealSel.forEach(function(sel){qa(sel).forEach(function(el){var idx=0;if(el.parentElement){var sibs=Array.prototype.slice.call(el.parentElement.children).filter(function(c){return c.matches(sel);});idx=Math.max(0,sibs.indexOf(el));}el.style.animationDelay=(Math.min(idx,5)*90)+'ms';el.classList.add('mo-pre');io.observe(el);});});
+  }
+  var bar=document.createElement('div');bar.id='mo-progress';document.body.appendChild(bar);var header=document.querySelector('header');
+  function setActive(id){qa('.nav-links a, .mobile-menu a').forEach(function(a){a.classList.toggle('mo-active',!!id&&a.getAttribute('href')==='#'+id);});}
+  function onScroll(){var h=document.documentElement,max=h.scrollHeight-h.clientHeight;bar.style.transform='scaleX('+(max>0?h.scrollTop/max:0)+')';if(header)header.classList.toggle('mo-scrolled',h.scrollTop>10);if(h.scrollTop<200)setActive('');}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+  if('IntersectionObserver' in window){var navIO=new IntersectionObserver(function(entries){entries.forEach(function(en){if(en.isIntersecting)setActive(en.target.id);});},{rootMargin:'-45% 0px -50% 0px'});['about','tokenomics','roadmap','tasks'].forEach(function(id){var s=document.getElementById(id);if(s)navIO.observe(s);});}
+  function confetti(){var wrap=document.createElement('div');wrap.className='mo-conf-wrap';var colors=['#ff6a00','#ff2fa6','#7b2cff','#00c2ff','#ffffff'];for(var i=0;i<46;i++){var p=document.createElement('i');p.className='mo-conf';p.style.left=(Math.random()*100)+'%';p.style.background=colors[i%colors.length];p.style.animationDuration=(1.8+Math.random()*1.6)+'s';p.style.animationDelay=(Math.random()*.5)+'s';p.style.transform='rotate('+(Math.random()*360)+'deg)';wrap.appendChild(p);}document.body.appendChild(wrap);setTimeout(function(){wrap.remove();},4200);}
+  var list=document.getElementById('tk-list'),finalBox=document.getElementById('tk-final');
+  if(list){var seen={};qa('#tk-list .tk-task.done').forEach(function(t){seen[t.getAttribute('data-id')]=true;});new MutationObserver(function(){qa('#tk-list .tk-task').forEach(function(t){var id=t.getAttribute('data-id'),done=t.classList.contains('done');if(done&&!seen[id]){seen[id]=true;t.classList.add('mo-pop');}if(!done)delete seen[id];});}).observe(list,{childList:true});}
+  if(finalBox){var wasHidden=finalBox.hidden;new MutationObserver(function(){if(wasHidden&&!finalBox.hidden){finalBox.classList.add('mo-pop');confetti();}wasHidden=finalBox.hidden;}).observe(finalBox,{attributes:true,attributeFilter:['hidden']});}
+})();
+</script>
+
 </body>
 </html>
