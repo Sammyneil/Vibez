@@ -780,6 +780,8 @@ header::after,footer::before{background:linear-gradient(90deg,#ff6a00,#ff2fa6,#7
 .nav-links a{position:relative}.nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;border-radius:2px;background:linear-gradient(90deg,#ff6a00,#ff2fa6,#7b2cff);transform:scaleX(0);transform-origin:left;transition:transform .3s}
 .nav-links a:hover::after,.nav-links a.mo-active::after{transform:scaleX(1)}.nav-links a.mo-active,.mobile-menu a.mo-active{color:#c4007f}.mobile-menu.open{animation:moDrop .28s ease}
 .btn-neon,.btn-copy,.btn-blue,.tk-btn.primary{position:relative;overflow:hidden}
+/* Keep keyboard focus visible even on buttons with clipped shine effects. */
+.btn-neon:focus-visible,.btn-copy:focus-visible,.btn-blue:focus-visible,.tk-btn:focus-visible{outline:3px solid #00c2ff;outline-offset:3px;box-shadow:0 0 0 5px rgba(0,194,255,.22);z-index:2}
 .btn-neon::after,.btn-copy::after,.btn-blue::after,.tk-btn.primary::after{content:"";position:absolute;top:0;left:-70%;width:45%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);pointer-events:none}
 .btn-neon::after,.btn-copy::after{animation:moSweep 4.5s ease-in-out 1.5s infinite}.btn-neon:hover::after,.btn-copy:hover::after,.btn-blue:hover::after,.tk-btn.primary:hover::after{animation:moSweep .8s ease}
 .ficon{transition:transform .3s}.tcard:hover .ficon,.feature:hover .ficon{transform:rotate(-8deg) scale(1.12)}
