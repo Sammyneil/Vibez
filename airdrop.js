@@ -41,7 +41,7 @@
         var opened = {};
         if (entry.opened && typeof entry.opened === 'object') {
           Object.keys(entry.opened).slice(0, 4).forEach(function (key) {
-            if (/^\\d{1,2}$/.test(key) && entry.opened[key] === true) opened[key] = true;
+            if (/^\d{1,2}$/.test(key) && entry.opened[key] === true) opened[key] = true;
           });
         }
         clean[id] = { verified: entry.verified === true, opened: opened };
@@ -65,7 +65,7 @@
       var opened = {};
       if (entry.opened && typeof entry.opened === 'object') {
         Object.keys(entry.opened).slice(0, 4).forEach(function (key) {
-          if (/^\\d{1,2}$/.test(key) && entry.opened[key] === true) opened[key] = true;
+          if (/^\d{1,2}$/.test(key) && entry.opened[key] === true) opened[key] = true;
         });
       }
       clean[id] = { verified: entry.verified === true, opened: opened };
