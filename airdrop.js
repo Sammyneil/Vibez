@@ -68,8 +68,7 @@
     if (!match) return bad('The link should look like x.com/yourname/status/123…');
     if (match[2] === POST_ID) return bad('That is the link to our post. Paste the link to your own comment.');
     if (match[1].toLowerCase() === X_ACCOUNT.toLowerCase()) return bad("That link is from our own account. Paste your comment's link.");
-    if (compareIds(match[2], POST_ID) < 0) return bad("That post is older than our launch post, so it can't be a comment on it.");
-    return { ok: true, msg: '', value: 'https://x.com/' + match[1] + '/status/' + match[2], user: match[1] };
+    return { ok: true, msg: 'Link format looks good. The server will verify that this is a direct reply to the official Vibez post when you submit.', value: 'https://x.com/' + match[1] + '/status/' + match[2], user: match[1] };
   }
   function validate(task, raw) {
     var value = (raw || '').trim();
