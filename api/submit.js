@@ -1,0 +1,119 @@
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function isSolanaAddress(value) {
+  if (typeof value !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  const bytes = [0];
+  for (let i = 0; i < value.length; i++) {
+    let carry = BASE58.indexOf(value[i]);
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 255;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 255);
+      carry >>= 8;
+    }
+  }
+  for (let k = 0; k < value.length && value[k] === '1'; k++) bytes.push(0);
+  return bytes.length === 32;
+}
+
+function validCommentUrl(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^(www|mobile)\./, '');
+    return (host === 'x.com' || host === 'twitter.com') &&
+      /^\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}(?:\/.*)?$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+module.exports = async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'Method not allowed.' });
+  }
+
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (origin && host) {
+    try {
+      if (new URL(origin).host !== host) {
+        return res.status(403).json({ ok: false, error: 'Cross-origin submission is not allowed.' });
+      }
+    } catch {
+      return res.status(403).json({ ok: false, error: 'Invalid request origin.' });
+    }
+  }
+
+  const body = typeof req.body === 'string' ? safeParse(req.body) : req.body || {};
+  if (JSON.stringify(body).length > 12000) {
+    return res.status(413).json({ ok: false, error: 'Submission is too large.' });
+  }
+
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const walletAddress = typeof body.walletAddress === 'string' ? body.walletAddress.trim() : '';
+  const commentUrl = typeof body.commentUrl === 'string' ? body.commentUrl.trim() : '';
+
+  if (!EMAIL_RE.test(email) || email.length > 254) {
+    return res.status(400).json({ ok: false, error: 'Please provide a valid email address.' });
+  }
+  if (!isSolanaAddress(walletAddress)) {
+    return res.status(400).json({ ok: false, error: 'Please provide a valid Solana wallet address.' });
+  }
+  if (!validCommentUrl(commentUrl)) {
+    return res.status(400).json({ ok: false, error: 'Please provide a valid X comment link.' });
+  }
+  if (body.consent !== true) {
+    return res.status(400).json({ ok: false, error: 'Consent is required to submit your entry.' });
+  }
+
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(503).json({ ok: false, error: 'Participant storage is not configured. Please try again later.' });
+  }
+
+  const record = {
+    email,
+    wallet_address: walletAddress,
+    comment_url: commentUrl,
+    x_follow_self_reported: body.xFollowSelfReported === true,
+    x_like_repost_self_reported: body.xLikeRepostSelfReported === true,
+    consent_at: new Date().toISOString()
+  };
+
+  try {
+    const response = await fetch(
+      supabaseUrl + '/rest/v1/airdrop_entries?on_conflict=wallet_address',
+      {
+        method: 'POST',
+        headers: {
+          apikey: serviceKey,
+          Authorization: 'Bearer ' + serviceKey,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(record)
+      }
+    );
+    if (!response.ok) {
+      console.error('Airdrop storage request failed with status:', response.status);
+      return res.status(502).json({ ok: false, error: 'We could not save your entry. Please try again later.' });
+    }
+    return res.status(200).json({ ok: true, submittedAt: record.consent_at });
+  } catch (error) {
+    console.error('Airdrop storage request failed:', error && error.message);
+    return res.status(502).json({ ok: false, error: 'We could not reach participant storage. Please try again later.' });
+  }
+};
+
+function safeParse(text) {
+  try { return JSON.parse(text); } catch { return {}; }
+}
