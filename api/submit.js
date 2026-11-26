@@ -160,6 +160,56 @@ module.exports = async function handler(req, res) {
   if (!telegramToken || !isValidTelegramLogin(body.telegramAuth, telegramToken)) {
     return res.status(401).json({ ok: false, error: 'Please complete Telegram verification again before submitting.' });
   }
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+  const secretKey = process.env.SUPABASE_SECRET_KEY || '';
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const apiKey = secretKey || serviceRoleKey;
+  const rateLimitSecret = process.env.RATE_LIMIT_SECRET || apiKey;
+  if (!supabaseUrl || !apiKey || !rateLimitSecret) {
+    return res.status(503).json({ ok: false, error: 'Submission protection is not configured. Please try again later.' });
+  }
+
+  // Hash identifiers before storage; raw IPs, Telegram IDs and wallets are never persisted.
+  const forwardedFor = req.headers['x-forwarded-for'];
+  const clientIp = typeof req.headers['x-real-ip'] === 'string'
+    ? req.headers['x-real-ip'].trim()
+    : (typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : '');
+  if (!clientIp) {
+    return res.status(503).json({ ok: false, error: 'Could not establish a trusted client address. Please try again.' });
+  }
+  const rateKey = (scope, value) => crypto.createHmac('sha256', rateLimitSecret)
+    .update(scope + ':' + String(value))
+    .digest('hex');
+  try {
+    const limitResponse = await fetch(supabaseUrl + '/rest/v1/rpc/consume_vibez_rate_limits', {
+      method: 'POST',
+      headers: {
+        apikey: apiKey,
+        Authorization: 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_ip_key: rateKey('ip', clientIp),
+        p_telegram_key: rateKey('telegram', body.telegramAuth.id),
+        p_wallet_key: rateKey('wallet', walletAddress.toLowerCase())
+      })
+    });
+    if (!limitResponse.ok) {
+      console.error('Submission rate-limit service failed with status:', limitResponse.status);
+      return res.status(503).json({ ok: false, error: 'Submission protection is temporarily unavailable. Please try again.' });
+    }
+    const rows = await limitResponse.json();
+    const limit = Array.isArray(rows) ? rows[0] : rows;
+    if (!limit || limit.allowed !== true) {
+      const retryAfter = Math.max(1, Number(limit && limit.retry_after_seconds) || 60);
+      res.setHeader('Retry-After', String(retryAfter));
+      return res.status(429).json({ ok: false, error: 'Too many submission attempts. Please wait before trying again.', retryAfterSeconds: retryAfter });
+    }
+  } catch (error) {
+    console.error('Submission rate-limit request failed:', error && error.message);
+    return res.status(503).json({ ok: false, error: 'Submission protection is temporarily unavailable. Please try again.' });
+  }
+
   try {
     const member = await isTelegramMember(telegramToken, telegramChatId, body.telegramAuth.id);
     if (!member) return res.status(403).json({ ok: false, error: 'Telegram channel membership could not be confirmed.' });
@@ -172,14 +222,6 @@ module.exports = async function handler(req, res) {
   const xReply = await verifyXReply(commentUrl);
   if (!xReply.ok) {
     return res.status(xReply.status).json({ ok: false, error: xReply.error });
-  }
-
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-  const secretKey = process.env.SUPABASE_SECRET_KEY || '';
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  const apiKey = secretKey || serviceRoleKey;
-  if (!supabaseUrl || !apiKey) {
-    return res.status(503).json({ ok: false, error: 'Participant storage is not configured. Please try again later.' });
   }
 
   const record = {
