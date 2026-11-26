@@ -1,7 +1,7 @@
 (function () {
   var CONFIG = {
     VERIFY_ENDPOINT: '/api/verify',
-    SUBMIT_ENDPOINT: '',
+    SUBMIT_ENDPOINT: '/api/submit',
     STORAGE_KEY: 'vibez_airdrop_v2'
   };
   var X_ACCOUNT = 'Vibez_coin';
@@ -36,24 +36,27 @@
   }
   function save() {
     try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
-    if (CONFIG.SUBMIT_ENDPOINT) {
-      fetch(CONFIG.SUBMIT_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) }).catch(function () {});
-    }
+
   }
   function getTask(id) { return TASKS.filter(function (task) { return task.id === id; })[0]; }
   function isEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value); }
   function isSolAddress(value) {
-    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
-    var alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    var bytes = [0];
-    for (var i = 0; i < value.length; i++) {
-      var carry = alphabet.indexOf(value[i]);
-      for (var j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 255; carry >>= 8; }
-      while (carry > 0) { bytes.push(carry & 255); carry >>= 8; }
-    }
-    for (var k = 0; k < value.length && value[k] === '1'; k++) bytes.push(0);
-    return bytes.length === 32;
+  if (typeof value !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let decoded = 0n;
+  for (const char of value) {
+    const digit = alphabet.indexOf(char);
+    if (digit < 0) return false;
+    decoded = decoded * 58n + BigInt(digit);
   }
+  let byteLength = 0;
+  while (decoded > 0n) {
+    byteLength++;
+    decoded >>= 8n;
+  }
+  for (let i = 0; i < value.length && value[i] === '1'; i++) byteLength++;
+  return byteLength === 32;
+}
   function compareIds(a, b) { return a.length !== b.length ? (a.length < b.length ? -1 : 1) : (a === b ? 0 : (a < b ? -1 : 1)); }
   function bad(message) { return { ok: false, msg: message, value: '', user: '' }; }
   function checkComment(raw) {
@@ -125,6 +128,13 @@
     document.getElementById('tk-fill').style.width = percent + '%';
     document.getElementById('tk-bar').setAttribute('aria-valuenow', String(percent));
     document.getElementById('tk-final').hidden = count !== TASKS.length;
+    var submitButton = document.getElementById('tk-submit-btn');
+    var submitStatus = document.getElementById('tk-submit-status');
+    if (state.submitted && submitButton) {
+      submitButton.disabled = true;
+      submitButton.innerHTML = '<i class="fa-solid fa-circle-check"></i> Entry submitted';
+      if (submitStatus) submitStatus.textContent = 'Your entry has been received by Vibez.';
+    }
   }
   function say(card, text, ok) {
     var message = card.querySelector('.tk-msg');
@@ -148,7 +158,7 @@
         if (!user) return resolve(false);
         fetch(CONFIG.VERIFY_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'tg', telegram: user }) })
           .then(function (response) { return response.json(); }).then(function (data) {
-            if (data.verified) state.tg = Object.assign({}, state.tg, { telegramId: data.telegramId, telegramUsername: user.username || '', verified: true });
+            if (data.verified) state.tg = Object.assign({}, state.tg, { telegramId: data.telegramId, telegramUsername: user.username || '', telegramAuth: user, verified: true });
             resolve(!!data.verified);
           }).catch(reject);
       });
@@ -182,6 +192,58 @@
     var fresh = listEl.querySelector('.tk-task[data-id="' + id + '"]');
     if (fresh) say(fresh, task.type === 'xlink' ? 'Saved. Comment by @' + result.user + '.' : 'Saved. You can update it any time.', true);
   }
+
+  function submitEntry() {
+    var button = document.getElementById('tk-submit-btn');
+    var status = document.getElementById('tk-submit-status');
+    var consent = document.getElementById('tk-consent');
+    if (state.submitted) return;
+    if (!TASKS.every(isDone)) {
+      status.textContent = 'Please complete all six tasks first.';
+      return;
+    }
+    if (!consent || !consent.checked) {
+      status.textContent = 'Please agree to the data-use notice before submitting.';
+      return;
+    }
+    if (!CONFIG.SUBMIT_ENDPOINT) {
+      status.textContent = 'Submission is not configured yet. Your details remain saved only in this browser.';
+      return;
+    }
+    var email = (state.email || {}).value || '';
+    var walletAddress = (state.wallet || {}).value || '';
+    var commentUrl = (state.comment || {}).value || '';
+    button.disabled = true;
+    button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting…';
+    status.textContent = 'Sending your entry securely…';
+    fetch(CONFIG.SUBMIT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        walletAddress: walletAddress,
+        commentUrl: commentUrl,
+        xFollowSelfReported: !!(state.x || {}).verified,
+        xLikeRepostSelfReported: !!(state.rt || {}).verified,
+        consent: true,
+        telegramAuth: (state.tg || {}).telegramAuth
+      })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Submission failed. Please try again.');
+        state.submitted = true;
+        state.submittedAt = data.submittedAt || new Date().toISOString();
+        save();
+        button.innerHTML = '<i class="fa-solid fa-circle-check"></i> Entry submitted';
+        status.textContent = 'Your entry has been received by Vibez. You can close this page.';
+      });
+    }).catch(function (error) {
+      button.disabled = false;
+      button.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit my airdrop entry';
+      status.textContent = error && error.message ? error.message : 'Could not submit your entry. Please try again.';
+    });
+  }
+
   function runCheck() {
     var rows = [];
     var passed = 0;
@@ -231,6 +293,7 @@
     }
   });
   document.getElementById('tk-check-btn').addEventListener('click', runCheck);
+  document.getElementById('tk-submit-btn').addEventListener('click', submitEntry);
   loadTelegramWidget();
   render();
 })();
