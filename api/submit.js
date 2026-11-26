@@ -151,10 +151,6 @@ module.exports = async function handler(req, res) {
   if (!isSolanaAddress(walletAddress)) {
     return res.status(400).json({ ok: false, error: 'Please provide a valid Solana wallet address.' });
   }
-  const xReply = await verifyXReply(commentUrl);
-  if (!xReply.ok) {
-    return res.status(xReply.status).json({ ok: false, error: xReply.error });
-  }
   if (body.consent !== true) {
     return res.status(400).json({ ok: false, error: 'Consent is required to submit your entry.' });
   }
@@ -170,6 +166,12 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     console.error('Telegram submission verification failed:', error && error.message);
     return res.status(502).json({ ok: false, error: 'Could not verify Telegram membership. Please try again.' });
+  }
+
+  // Only spend X API quota after consent and signed Telegram membership are verified.
+  const xReply = await verifyXReply(commentUrl);
+  if (!xReply.ok) {
+    return res.status(xReply.status).json({ ok: false, error: xReply.error });
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
