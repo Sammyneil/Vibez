@@ -32,21 +32,20 @@ const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 function isSolanaAddress(value) {
   if (typeof value !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
-  const bytes = [0];
-  for (let i = 0; i < value.length; i++) {
-    let carry = BASE58.indexOf(value[i]);
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry & 255;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 255);
-      carry >>= 8;
-    }
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let decoded = 0n;
+  for (const char of value) {
+    const digit = alphabet.indexOf(char);
+    if (digit < 0) return false;
+    decoded = decoded * 58n + BigInt(digit);
   }
-  for (let k = 0; k < value.length && value[k] === '1'; k++) bytes.push(0);
-  return bytes.length === 32;
+  let byteLength = 0;
+  while (decoded > 0n) {
+    byteLength++;
+    decoded >>= 8n;
+  }
+  for (let i = 0; i < value.length && value[i] === '1'; i++) byteLength++;
+  return byteLength === 32;
 }
 
 function validCommentUrl(value) {
