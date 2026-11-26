@@ -22,9 +22,19 @@
   var drafts = {};
   var state = load();
   var telegramBotId = '';
+  var telegramAuth = null;
 
   function load() {
-    try { return JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || {}; } catch (e) { return {}; }
+    try {
+      var saved = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || {};
+      // Never retain Telegram's signed login payload (especially its hash) across page loads.
+      if (saved.tg && saved.tg.telegramAuth) {
+        delete saved.tg.telegramAuth;
+        saved.tg.verified = false;
+        try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(saved)); } catch (e) {}
+      }
+      return saved;
+    } catch (e) { return {}; }
   }
   function save() {
     try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
@@ -149,7 +159,10 @@
         if (!user) return resolve(false);
         fetch(CONFIG.VERIFY_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'tg', telegram: user }) })
           .then(function (response) { return response.json(); }).then(function (data) {
-            if (data.verified) state.tg = Object.assign({}, state.tg, { telegramId: data.telegramId, telegramUsername: user.username || '', telegramAuth: user, verified: true });
+            if (data.verified) {
+              telegramAuth = user;
+              state.tg = { telegramId: data.telegramId, telegramUsername: user.username || '', verified: true };
+            }
             resolve(!!data.verified);
           }).catch(reject);
       });
@@ -217,14 +230,14 @@
         xFollowSelfReported: !!(state.x || {}).verified,
         xLikeRepostSelfReported: !!(state.rt || {}).verified,
         consent: true,
-        telegramAuth: (state.tg || {}).telegramAuth
+        telegramAuth: telegramAuth
       })
     }).then(function (response) {
       return response.json().then(function (data) {
         if (!response.ok || !data.ok) throw new Error(data.error || 'Submission failed. Please try again.');
-        state.submitted = true;
-        state.submittedAt = data.submittedAt || new Date().toISOString();
-        save();
+        state = { submitted: true, submittedAt: data.submittedAt || new Date().toISOString() };
+        telegramAuth = null;
+        try { localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
         button.innerHTML = '<i class="fa-solid fa-circle-check"></i> Entry submitted';
         status.textContent = 'Your entry has been received by Vibez. You can close this page.';
       });
