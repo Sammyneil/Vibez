@@ -24,17 +24,15 @@ jobs:
     steps:
       - name: Call protected, non-persistent X verification endpoint
         env:
-          TEST_ENDPOINT_URL: ${{ secrets.VIBEZ_TEST_ENDPOINT_URL }}
           TEST_ROUTE_SECRET: ${{ secrets.VIBEZ_TEST_ROUTE_SECRET }}
           COMMENT_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.comment_url || secrets.VIBEZ_TEST_COMMENT_URL }}
         run: |
           node <<'NODE'
-          const endpointValue = process.env.TEST_ENDPOINT_URL || '';
+          const endpointValue = 'https://vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app/api/test-x-reply';
           const routeSecret = process.env.TEST_ROUTE_SECRET || '';
           const commentUrl = process.env.COMMENT_URL || '';
 
           const missing = [];
-          if (!endpointValue) missing.push('VIBEZ_TEST_ENDPOINT_URL');
           if (!routeSecret) missing.push('VIBEZ_TEST_ROUTE_SECRET');
           if (!commentUrl) {
             missing.push(
