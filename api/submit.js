@@ -262,3 +262,6 @@ module.exports = async function handler(req, res) {
 function safeParse(text) {
   try { return JSON.parse(text); } catch { return {}; }
 }
+
+// Export the production X verifier for the isolated, non-persistent test endpoint.
+module.exports.verifyXReply = verifyXReply;

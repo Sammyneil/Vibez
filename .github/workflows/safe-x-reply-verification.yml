@@ -1,0 +1,145 @@
+name: Safe X reply verification
+
+on:
+  push:
+    branches: [fix/safe-x-reply-test-on-current-main]
+  workflow_dispatch:
+    inputs:
+      comment_url:
+        description: X reply URL to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main') ||
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call protected, non-persistent X verification endpoint
+        env:
+          TEST_ROUTE_SECRET: ${{ secrets.VIBEZ_TEST_ROUTE_SECRET }}
+          VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          COMMENT_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.comment_url || secrets.VIBEZ_TEST_COMMENT_URL }}
+        run: |
+          node <<'NODE'
+          const endpointValue = 'https://vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app/api/test-x-reply';
+          const routeSecret = process.env.TEST_ROUTE_SECRET || '';
+          const commentUrl = process.env.COMMENT_URL || '';
+
+          const missing = [];
+          if (!routeSecret) missing.push('VIBEZ_TEST_ROUTE_SECRET');
+          if (!commentUrl) {
+            missing.push(
+              process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+                ? 'workflow_dispatch input: comment_url'
+                : 'VIBEZ_TEST_COMMENT_URL'
+            );
+          }
+          if (missing.length) {
+            console.error('Missing required configuration: ' + missing.join(', '));
+            process.exit(1);
+          }
+
+          let endpoint;
+          let comment;
+          try {
+            endpoint = new URL(endpointValue);
+          } catch {
+            console.error('VIBEZ_TEST_ENDPOINT_URL must be a valid HTTPS URL.');
+            process.exit(1);
+          }
+
+          if (
+            endpoint.protocol !== 'https:' ||
+            endpoint.hostname !== 'vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app' ||
+            endpoint.port !== '' ||
+            !['/api/test-x-reply', '/api/test-x-reply/'].includes(endpoint.pathname)
+          ) {
+            console.error(
+              'VIBEZ_TEST_ENDPOINT_URL must point to a VIBEZ project Preview deployment on the vibez-team.vercel.app domain and /api/test-x-reply route.'
+            );
+            process.exit(1);
+          }
+
+          try {
+            comment = new URL(commentUrl);
+          } catch {
+            console.error('COMMENT_URL must be a valid X post URL.');
+            process.exit(1);
+          }
+          const commentHost = comment.hostname.startsWith('www.')
+            ? comment.hostname.slice(4)
+            : comment.hostname;
+          const commentParts = comment.pathname.split('/').filter(Boolean);
+          const statusIndex = commentParts.indexOf('status');
+          const postId = statusIndex >= 0 ? commentParts[statusIndex + 1] || '' : '';
+          const numericPostId =
+            postId.length >= 5 &&
+            postId.length <= 25 &&
+            [...postId].every(character => character >= '0' && character <= '9');
+
+          if (
+            comment.protocol !== 'https:' ||
+            !['x.com', 'twitter.com'].includes(commentHost) ||
+            statusIndex < 1 ||
+            !numericPostId
+          ) {
+            console.error('COMMENT_URL must be a valid X post URL.');
+            process.exit(1);
+          }
+
+          (async () => {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-vibez-test-secret': routeSecret,
+                ...(process.env.VERCEL_BYPASS_SECRET
+                  ? { 'x-vercel-protection-bypass': process.env.VERCEL_BYPASS_SECRET }
+                  : {})
+              },
+              body: JSON.stringify({ commentUrl }),
+              signal: AbortSignal.timeout(30000)
+            });
+
+            const contentType = response.headers.get('content-type') || '';
+            const diagnosticHeaders = {
+              server: response.headers.get('server') || 'unavailable',
+              contentType,
+              retryAfter: response.headers.get('retry-after') || 'none',
+              vercelId: response.headers.get('x-vercel-id') || 'none'
+            };
+            const responseText = await response.text();
+            let payload = {};
+            try {
+              payload = JSON.parse(responseText);
+            } catch {
+              console.error('Non-JSON response metadata:', JSON.stringify(diagnosticHeaders));
+              throw new Error('Protected endpoint returned a non-JSON response (HTTP ' + response.status + ').');
+            }
+
+            if (!response.ok || payload.ok !== true || payload.verified !== true) {
+              const detail = typeof payload.error === 'string' ? payload.error : 'Verification failed.';
+              throw new Error(detail + ' (HTTP ' + response.status + ').');
+            }
+
+            if (payload.persisted !== false) {
+              throw new Error('Safety assertion failed: endpoint did not confirm persisted=false.');
+            }
+
+            console.log('PASS: GitHub Actions reached the protected /api/test-x-reply endpoint.');
+            console.log('PASS: Protected endpoint accepted its server-side test secret.');
+            console.log('PASS: Shared server-side X reply verifier accepted the reply.');
+            console.log('PASS: Endpoint confirmed persisted=false; no airdrop entry was created.');
+          })().catch(error => {
+            console.error('FAIL:', error.message);
+            process.exit(1);
+          });
+          NODE
