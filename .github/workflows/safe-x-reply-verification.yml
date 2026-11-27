@@ -33,10 +33,18 @@ jobs:
           const routeSecret = process.env.TEST_ROUTE_SECRET || '';
           const commentUrl = process.env.COMMENT_URL || '';
 
-          if (!endpointValue || !routeSecret || !commentUrl) {
-            console.error(
-              'Missing repository secrets: VIBEZ_TEST_ENDPOINT_URL, VIBEZ_TEST_ROUTE_SECRET, and/or VIBEZ_TEST_COMMENT_URL.'
+          const missing = [];
+          if (!endpointValue) missing.push('VIBEZ_TEST_ENDPOINT_URL');
+          if (!routeSecret) missing.push('VIBEZ_TEST_ROUTE_SECRET');
+          if (!commentUrl) {
+            missing.push(
+              process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+                ? 'workflow_dispatch input: comment_url'
+                : 'VIBEZ_TEST_COMMENT_URL'
             );
+          }
+          if (missing.length) {
+            console.error('Missing required configuration: ' + missing.join(', '));
             process.exit(1);
           }
 
