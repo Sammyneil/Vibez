@@ -1,0 +1,98 @@
+name: Safe X reply verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      comment_url:
+        description: X reply URL to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/test/x-reply-verification-safe-route'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call protected, non-persistent X verification endpoint
+        env:
+          TEST_ENDPOINT_URL: ${{ secrets.VIBEZ_TEST_ENDPOINT_URL }}
+          TEST_ROUTE_SECRET: ${{ secrets.VIBEZ_TEST_ROUTE_SECRET }}
+          COMMENT_URL: ${{ inputs.comment_url }}
+        run: |
+          node <<'NODE'
+          const endpointValue = process.env.TEST_ENDPOINT_URL || '';
+          const routeSecret = process.env.TEST_ROUTE_SECRET || '';
+          const commentUrl = process.env.COMMENT_URL || '';
+
+          if (!endpointValue || !routeSecret) {
+            console.error(
+              'Missing repository secrets: VIBEZ_TEST_ENDPOINT_URL and/or VIBEZ_TEST_ROUTE_SECRET.'
+            );
+            process.exit(1);
+          }
+
+          let endpoint;
+          try {
+            endpoint = new URL(endpointValue);
+          } catch {
+            console.error('VIBEZ_TEST_ENDPOINT_URL must be a valid HTTPS URL.');
+            process.exit(1);
+          }
+
+          if (
+            endpoint.protocol !== 'https:' ||
+            !/^\/api\/test-x-reply\/?$/.test(endpoint.pathname)
+          ) {
+            console.error(
+              'VIBEZ_TEST_ENDPOINT_URL must point directly to https://<preview-host>/api/test-x-reply.'
+            );
+            process.exit(1);
+          }
+
+          if (!/^https:\/\/(www\.)?(x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
+            console.error('COMMENT_URL must be a valid X post URL.');
+            process.exit(1);
+          }
+
+          (async () => {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-vibez-test-secret': routeSecret
+              },
+              body: JSON.stringify({ commentUrl }),
+              signal: AbortSignal.timeout(30000)
+            });
+
+            let payload = {};
+            try {
+              payload = await response.json();
+            } catch {
+              throw new Error(
+                'Protected endpoint returned a non-JSON response (HTTP ' + response.status + ').'
+              );
+            }
+
+            if (!response.ok || payload.ok !== true || payload.verified !== true) {
+              const detail = typeof payload.error === 'string' ? payload.error : 'Verification failed.';
+              throw new Error(detail + ' (HTTP ' + response.status + ').');
+            }
+
+            if (payload.persisted !== false) {
+              throw new Error('Safety assertion failed: endpoint did not confirm persisted=false.');
+            }
+
+            console.log('PASS: GitHub Actions reached the protected /api/test-x-reply endpoint.');
+            console.log('PASS: Protected endpoint accepted its server-side test secret.');
+            console.log('PASS: Shared server-side X reply verifier accepted the reply.');
+            console.log('PASS: Endpoint confirmed persisted=false; no airdrop entry was created.');
+          })().catch(error => {
+            console.error('FAIL:', error.message);
+            process.exit(1);
+          });
+          NODE
