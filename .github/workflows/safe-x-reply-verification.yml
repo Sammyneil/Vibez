@@ -73,14 +73,22 @@ jobs:
             console.error('COMMENT_URL must be a valid X post URL.');
             process.exit(1);
           }
+          const commentHost = comment.hostname.startsWith('www.')
+            ? comment.hostname.slice(4)
+            : comment.hostname;
           const commentParts = comment.pathname.split('/').filter(Boolean);
-          const commentHost = comment.hostname.replace(/^www\\./, '');
+          const statusIndex = commentParts.indexOf('status');
+          const postId = statusIndex >= 0 ? commentParts[statusIndex + 1] || '' : '';
+          const numericPostId =
+            postId.length >= 5 &&
+            postId.length <= 25 &&
+            [...postId].every(character => character >= '0' && character <= '9');
+
           if (
             comment.protocol !== 'https:' ||
             !['x.com', 'twitter.com'].includes(commentHost) ||
-            commentParts.length !== 3 ||
-            commentParts[1] !== 'status' ||
-            !/^\\d{5,25}$/.test(commentParts[2])
+            statusIndex < 1 ||
+            !numericPostId
           ) {
             console.error('COMMENT_URL must be a valid X post URL.');
             process.exit(1);
