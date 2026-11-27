@@ -36,7 +36,7 @@ jobs:
 
           const missing = [];
           if (!routeSecret) missing.push('VIBEZ_TEST_ROUTE_SECRET');
-if (!endpointValue) missing.push('VIBEZ_TEST_ENDPOINT_URL');
+          if (!endpointValue) missing.push('VIBEZ_TEST_ENDPOINT_URL');
           if (!commentUrl) {
             missing.push(
               process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
@@ -60,10 +60,12 @@ if (!endpointValue) missing.push('VIBEZ_TEST_ENDPOINT_URL');
 
           if (
             endpoint.protocol !== 'https:' ||
+            endpoint.hostname !== 'vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app' ||
+            endpoint.port !== '' ||
             !['/api/test-x-reply', '/api/test-x-reply/'].includes(endpoint.pathname)
           ) {
             console.error(
-              'VIBEZ_TEST_ENDPOINT_URL must point directly to https://<preview-host>/api/test-x-reply.'
+              'VIBEZ_TEST_ENDPOINT_URL must point to the approved VIBEZ Preview host and /api/test-x-reply route.'
             );
             process.exit(1);
           }
