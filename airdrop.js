@@ -10,8 +10,8 @@
   var POST_ID = '2125564862365364671';
   var POST_URL = 'https://x.com/' + X_ACCOUNT + '/status/' + POST_ID;
   var TASKS = [
-    { id: 'x', type: 'link', icon: 'fa-brands fa-x-twitter', title: 'Follow us on X', desc: 'Follow @' + X_ACCOUNT + ', then confirm below.', links: [{ label: 'Follow on X', url: 'https://x.com/' + X_ACCOUNT, icon: 'fa-brands fa-x-twitter' }] },
-    { id: 'rt', type: 'link', icon: 'fa-solid fa-retweet', title: 'Like and Repost', desc: 'Like and repost our launch post, then confirm below.', links: [{ label: 'Like', url: 'https://x.com/intent/like?tweet_id=' + POST_ID, icon: 'fa-solid fa-heart' }, { label: 'Repost', url: 'https://x.com/intent/retweet?tweet_id=' + POST_ID, icon: 'fa-solid fa-retweet' }] },
+    { id: 'x', type: 'link', icon: 'fa-brands fa-x-twitter', title: 'Follow us on X', desc: 'Follow @' + X_ACCOUNT + ', then self-confirm below. This action is not independently verified by X.', links: [{ label: 'Follow on X', url: 'https://x.com/' + X_ACCOUNT, icon: 'fa-brands fa-x-twitter' }] },
+    { id: 'rt', type: 'link', icon: 'fa-solid fa-retweet', title: 'Like and Repost', desc: 'Like and repost our launch post, then self-confirm below. These actions are not independently verified by X.', links: [{ label: 'Like', url: 'https://x.com/intent/like?tweet_id=' + POST_ID, icon: 'fa-solid fa-heart' }, { label: 'Repost', url: 'https://x.com/intent/retweet?tweet_id=' + POST_ID, icon: 'fa-solid fa-retweet' }] },
     { id: 'comment', type: 'xlink', icon: 'fa-solid fa-comment', title: 'Comment', desc: 'Comment on our launch post, then paste the link to your comment.', postUrl: POST_URL, placeholder: 'https://x.com/yourname/status/…' },
     { id: 'tg', type: 'telegram', icon: 'fa-brands fa-telegram', title: 'Join our Telegram', desc: 'Join the community channel. Membership is checked securely.', links: [{ label: 'Open Telegram', url: 'https://t.me/vibecoinonsoll', icon: 'fa-brands fa-telegram' }] },
     { id: 'email', type: 'email', icon: 'fa-solid fa-envelope', title: 'Drop your email', desc: 'Used for airdrop updates and announcements.', placeholder: 'you@example.com' },
@@ -126,14 +126,15 @@
   function taskHTML(task, index) {
     var entry = state[task.id] || {};
     var done = isDone(task);
-    var label = task.type === 'link' || task.type === 'telegram' ? 'Completed' : 'Saved';
+    var selfReported = task.id === 'x' || task.id === 'rt';
+    var label = selfReported ? 'Self-confirmed' : (task.type === 'link' || task.type === 'telegram' ? 'Completed' : 'Saved');
     var html = '<div class="tk-task' + (done ? ' done' : '') + '" data-id="' + task.id + '"><div class="tk-head"><div class="tk-icon"><i class="' + task.icon + '"></i></div><div class="tk-info"><div class="tk-title"><span class="tk-num">' + (index + 1) + '</span>' + task.title + '</div><p class="tk-desc">' + task.desc + '</p></div><span class="tk-pill' + (done ? ' ok' : '') + '">' + (done ? '<i class="fa-solid fa-check"></i> ' + label : 'Pending') + '</span></div>';
     if (task.type === 'link' || task.type === 'telegram') {
-      if (done) html += '<div class="tk-actions"><button class="tk-btn success" type="button" disabled><i class="fa-solid fa-circle-check"></i> Completed</button></div>';
+      if (done) html += '<div class="tk-actions"><button class="tk-btn success" type="button" disabled><i class="fa-solid fa-circle-check"></i> ' + (selfReported ? 'Self-confirmed (not verified)' : 'Completed') + '</button></div>';
       else {
         var opened = entry.opened || {};
         html += '<div class="tk-actions">' + task.links.map(function (link, i) { return '<a class="tk-btn ' + (opened[i] ? 'success' : 'primary') + '" data-action="open" data-i="' + i + '" href="' + link.url + '" target="_blank" rel="noopener noreferrer"><i class="' + (opened[i] ? 'fa-solid fa-check' : link.icon) + '"></i> ' + link.label + '</a>'; }).join('');
-        html += '<button class="tk-btn" type="button" data-action="verify"' + (allOpened(task, entry) ? '' : ' disabled') + '><i class="fa-solid fa-shield-halved"></i> ' + (task.type === 'telegram' ? 'Verify membership' : 'I completed this') + '</button></div>';
+        html += '<button class="tk-btn" type="button" data-action="verify"' + (allOpened(task, entry) ? '' : ' disabled') + '><i class="fa-solid fa-shield-halved"></i> ' + (task.type === 'telegram' ? 'Verify membership' : (selfReported ? 'I did this (self-confirm)' : 'I completed this')) + '</button></div>';
       }
     } else {
       if (task.type === 'xlink') html += '<div class="tk-actions"><a class="tk-btn primary" href="' + task.postUrl + '" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter"></i> Open post to comment</a></div>';
@@ -213,7 +214,7 @@
         save(); render();
       } else {
         button.disabled = false;
-        button.innerHTML = '<i class="fa-solid fa-shield-halved"></i> ' + (task.type === 'telegram' ? 'Verify membership' : 'I completed this');
+        button.innerHTML = '<i class="fa-solid fa-shield-halved"></i> ' + (task.type === 'telegram' ? 'Verify membership' : ((task.id === 'x' || task.id === 'rt') ? 'I did this (self-confirm)' : 'I completed this'));
         say(card, task.type === 'telegram' ? 'Telegram membership could not be confirmed. Try again after joining the channel.' : 'Please complete the linked steps, then try again.');
       }
     }).catch(function () { button.disabled = false; say(card, 'Something went wrong. Please try again.'); });
