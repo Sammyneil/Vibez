@@ -25,18 +25,16 @@ jobs:
       - name: Call protected, non-persistent X verification endpoint
         env:
           TEST_ROUTE_SECRET: ${{ secrets.VIBEZ_TEST_ROUTE_SECRET }}
-          ENDPOINT_URL: ${{ secrets.VIBEZ_TEST_ENDPOINT_URL }}
           VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           COMMENT_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.comment_url || secrets.VIBEZ_TEST_COMMENT_URL }}
         run: |
           node <<'NODE'
-          const endpointValue = process.env.ENDPOINT_URL || '';
+          const endpointValue = 'https://vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app/api/test-x-reply';
           const routeSecret = process.env.TEST_ROUTE_SECRET || '';
           const commentUrl = process.env.COMMENT_URL || '';
 
           const missing = [];
           if (!routeSecret) missing.push('VIBEZ_TEST_ROUTE_SECRET');
-          if (!endpointValue) missing.push('VIBEZ_TEST_ENDPOINT_URL');
           if (!commentUrl) {
             missing.push(
               process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
@@ -60,7 +58,7 @@ jobs:
 
           if (
             endpoint.protocol !== 'https:' ||
-            !/^vibez-landing-page-a864f2580d-[a-z0-9-]+-vibez-team\.vercel\.app$/.test(endpoint.hostname) ||
+            endpoint.hostname !== 'vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app' ||
             endpoint.port !== '' ||
             !['/api/test-x-reply', '/api/test-x-reply/'].includes(endpoint.pathname)
           ) {
