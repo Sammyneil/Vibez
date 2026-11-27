@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/test/x-reply-verification-safe-route'
+    if: github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
