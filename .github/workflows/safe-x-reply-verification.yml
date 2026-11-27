@@ -1,6 +1,8 @@
 name: Safe X reply verification
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       comment_url:
@@ -13,7 +15,11 @@ permissions:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main'
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.ref == 'fix/safe-x-reply-test-on-current-main' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -21,16 +27,16 @@ jobs:
         env:
           TEST_ENDPOINT_URL: ${{ secrets.VIBEZ_TEST_ENDPOINT_URL }}
           TEST_ROUTE_SECRET: ${{ secrets.VIBEZ_TEST_ROUTE_SECRET }}
-          COMMENT_URL: ${{ inputs.comment_url }}
+          COMMENT_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.comment_url || secrets.VIBEZ_TEST_COMMENT_URL }}
         run: |
           node <<'NODE'
           const endpointValue = process.env.TEST_ENDPOINT_URL || '';
           const routeSecret = process.env.TEST_ROUTE_SECRET || '';
           const commentUrl = process.env.COMMENT_URL || '';
 
-          if (!endpointValue || !routeSecret) {
+          if (!endpointValue || !routeSecret || !commentUrl) {
             console.error(
-              'Missing repository secrets: VIBEZ_TEST_ENDPOINT_URL and/or VIBEZ_TEST_ROUTE_SECRET.'
+              'Missing repository secrets: VIBEZ_TEST_ENDPOINT_URL, VIBEZ_TEST_ROUTE_SECRET, and/or VIBEZ_TEST_COMMENT_URL.'
             );
             process.exit(1);
           }
@@ -45,7 +51,7 @@ jobs:
 
           if (
             endpoint.protocol !== 'https:' ||
-            !/^\/api\/test-x-reply\/?$/.test(endpoint.pathname)
+            !/^\\/api\\/test-x-reply\\/?$/.test(endpoint.pathname)
           ) {
             console.error(
               'VIBEZ_TEST_ENDPOINT_URL must point directly to https://<preview-host>/api/test-x-reply.'
@@ -53,7 +59,7 @@ jobs:
             process.exit(1);
           }
 
-          if (!/^https:\/\/(www\.)?(x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
+          if (!/^https:\\/\\/(www\\.)?(x\\.com|twitter\\.com)\\/[A-Za-z0-9_]{1,15}\\/status\\/\\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
             console.error('COMMENT_URL must be a valid X post URL.');
             process.exit(1);
           }
