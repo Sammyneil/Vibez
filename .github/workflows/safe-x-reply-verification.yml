@@ -51,7 +51,7 @@ jobs:
 
           if (
             endpoint.protocol !== 'https:' ||
-            !/^\\/api\\/test-x-reply\\/?$/.test(endpoint.pathname)
+            !/^\/api\/test-x-reply\/?$/.test(endpoint.pathname)
           ) {
             console.error(
               'VIBEZ_TEST_ENDPOINT_URL must point directly to https://<preview-host>/api/test-x-reply.'
@@ -59,7 +59,7 @@ jobs:
             process.exit(1);
           }
 
-          if (!/^https:\\/\\/(www\\.)?(x\\.com|twitter\\.com)\\/[A-Za-z0-9_]{1,15}\\/status\\/\\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
+          if (!/^https:\/\/(www\.)?(x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
             console.error('COMMENT_URL must be a valid X post URL.');
             process.exit(1);
           }
