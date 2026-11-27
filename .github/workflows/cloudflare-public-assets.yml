@@ -1,0 +1,43 @@
+name: Cloudflare public asset build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-public-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Build the public asset directory
+        run: node scripts/build-worker.mjs
+
+      - name: Verify exact public asset allowlist
+        run: |
+          node --input-type=module <<'NODE'
+          import { readdir, stat } from "node:fs/promises";
+          import { strict as assert } from "node:assert";
+
+          const expected = ["airdrop.js", "index.html", "logo.jpg"];
+          const actual = (await readdir("dist")).sort();
+          assert.deepEqual(actual, expected, "dist must contain only the approved public assets");
+
+          for (const file of expected) {
+            const info = await stat(`dist/${file}`);
+            assert.ok(info.isFile() && info.size > 0, `${file} must be a non-empty regular file`);
+          }
+
+          const html = await (await import("node:fs/promises")).readFile("dist/index.html", "utf8");
+          assert.match(html, /href=["']\/logo\.jpg["']/i, "favicon must reference the shipped logo");
+          assert.match(html, /src=["']\/logo\.jpg["']/i, "page logo must reference the shipped logo");
+          console.log("Public asset allowlist and logo references verified.");
+          NODE
