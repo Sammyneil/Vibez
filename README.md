@@ -63,6 +63,8 @@ The feature-branch workflow `.github/workflows/safe-x-reply-verification.yml` ca
 Configure these values before pushing to `fix/safe-x-reply-test-on-current-main`:
 
 - **Vercel Preview environment:** `VIBEZ_TEST_ROUTE_SECRET` and `X_API_BEARER_TOKEN`.
-- **GitHub Actions repository secrets:** `VIBEZ_TEST_ENDPOINT_URL` (the HTTPS Preview URL ending in `/api/test-x-reply`), `VIBEZ_TEST_ROUTE_SECRET` (must match the Preview value), and `VIBEZ_TEST_COMMENT_URL` (the X reply URL to verify on push).
+- **GitHub Actions repository secrets:** `VIBEZ_TEST_ROUTE_SECRET` (must match the Vercel Preview value) and `VIBEZ_TEST_COMMENT_URL` (the X reply URL to verify on push). The workflow currently uses the stable Preview URL directly; `VIBEZ_TEST_ENDPOINT_URL` is not read and is not required.
 
 The push-triggered run uses `VIBEZ_TEST_COMMENT_URL`. The workflow's manual `workflow_dispatch` input is available only after the workflow file exists on the repository's default branch; after it is merged, select the feature branch when manually dispatching and supply the X reply URL. Never place `X_API_BEARER_TOKEN` in GitHub Actions secrets, browser code, or a request body; it stays in Vercel Preview.
+
+**Known Preview limitation:** Vercel's managed Bot Protection has returned HTTP 429 before the test route executes. The route-specific firewall exception bypasses ordinary bot challenges only; system-level protection remains enabled. Do not disable global protection or weaken Production security to make this test pass. Treat the X verification workflow as blocked until a supported, narrowly scoped Preview access method is available.
