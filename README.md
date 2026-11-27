@@ -54,3 +54,15 @@ Apply the SQL migrations in `supabase/migrations/` to the linked Supabase projec
 ## Disclaimer
 
 $VIBEZ is a meme coin with no intrinsic value or expectation of financial return. Cryptocurrency trading carries substantial risk of loss and is not suitable for everyone. Always DYOR.
+
+
+## Protected X reply verification test
+
+The feature-branch workflow `.github/workflows/safe-x-reply-verification.yml` calls the Preview deployment's protected `POST /api/test-x-reply` route. It reuses the production X reply verifier and asserts `persisted: false`; it does not create or update participant records.
+
+Configure these values before pushing to `fix/safe-x-reply-test-on-current-main`:
+
+- **Vercel Preview environment:** `VIBEZ_TEST_ROUTE_SECRET` and `X_API_BEARER_TOKEN`.
+- **GitHub Actions repository secrets:** `VIBEZ_TEST_ENDPOINT_URL` (the HTTPS Preview URL ending in `/api/test-x-reply`), `VIBEZ_TEST_ROUTE_SECRET` (must match the Preview value), and `VIBEZ_TEST_COMMENT_URL` (the X reply URL to verify on push).
+
+The push-triggered run uses `VIBEZ_TEST_COMMENT_URL`. The workflow's manual `workflow_dispatch` input is available only after the workflow file exists on the repository's default branch; after it is merged, select the feature branch when manually dispatching and supply the X reply URL. Never place `X_API_BEARER_TOKEN` in GitHub Actions secrets, browser code, or a request body; it stays in Vercel Preview.
