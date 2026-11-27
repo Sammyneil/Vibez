@@ -42,7 +42,7 @@ Apply the SQL migrations in `supabase/migrations/` to the linked Supabase projec
 - The browser validates input formats and stores unfinished task progress in local storage.
 - Telegram login signatures and channel membership are checked server-side.
 - The follow and like/repost tasks are user-confirmed; they are not independently verified against X.
-- The submitted X post is checked server-side for a direct `replied_to` reference to the official Vibez launch post (`2125564862365364671)); the username in the submitted URL must match the post author.
+- The submitted X post is checked server-side for a direct `replied_to` reference to the official Vibez launch post (`2125564862365364671`); the username in the submitted URL must match the post author.
 - Submission requires consent, a valid Telegram login and current channel membership, a valid email, a valid Solana address, and successful X reply verification.
 - Participant records are written to `public.airdrop_entries` by the server. Duplicate wallet addresses are upserted.
 
