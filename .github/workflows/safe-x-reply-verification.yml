@@ -1,8 +1,8 @@
 name: Safe X reply verification
 
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches: [fix/safe-x-reply-test-on-current-main]
   workflow_dispatch:
     inputs:
       comment_url:
@@ -17,9 +17,8 @@ jobs:
   verify:
     if: |
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main') ||
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.ref == 'fix/safe-x-reply-test-on-current-main' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/fix/safe-x-reply-test-on-current-main')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
