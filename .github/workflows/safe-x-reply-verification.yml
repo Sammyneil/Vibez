@@ -49,6 +49,7 @@ jobs:
           }
 
           let endpoint;
+          let comment;
           try {
             endpoint = new URL(endpointValue);
           } catch {
@@ -58,7 +59,7 @@ jobs:
 
           if (
             endpoint.protocol !== 'https:' ||
-            !/^\\/api\\/test-x-reply\\/?$/.test(endpoint.pathname)
+            !['/api/test-x-reply', '/api/test-x-reply/'].includes(endpoint.pathname)
           ) {
             console.error(
               'VIBEZ_TEST_ENDPOINT_URL must point directly to https://<preview-host>/api/test-x-reply.'
@@ -66,7 +67,21 @@ jobs:
             process.exit(1);
           }
 
-          if (!/^https:\\/\\/(www\\.)?(x\\.com|twitter\\.com)\\/[A-Za-z0-9_]{1,15}\\/status\\/\\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
+          try {
+            comment = new URL(commentUrl);
+          } catch {
+            console.error('COMMENT_URL must be a valid X post URL.');
+            process.exit(1);
+          }
+          const commentParts = comment.pathname.split('/').filter(Boolean);
+          const commentHost = comment.hostname.replace(/^www\\./, '');
+          if (
+            comment.protocol !== 'https:' ||
+            !['x.com', 'twitter.com'].includes(commentHost) ||
+            commentParts.length !== 3 ||
+            commentParts[1] !== 'status' ||
+            !/^\\d{5,25}$/.test(commentParts[2])
+          ) {
             console.error('COMMENT_URL must be a valid X post URL.');
             process.exit(1);
           }
