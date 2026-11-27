@@ -58,7 +58,7 @@ jobs:
 
           if (
             endpoint.protocol !== 'https:' ||
-            !/^\/api\/test-x-reply\/?$/.test(endpoint.pathname)
+            !/^\\/api\\/test-x-reply\\/?$/.test(endpoint.pathname)
           ) {
             console.error(
               'VIBEZ_TEST_ENDPOINT_URL must point directly to https://<preview-host>/api/test-x-reply.'
@@ -66,7 +66,7 @@ jobs:
             process.exit(1);
           }
 
-          if (!/^https:\/\/(www\.)?(x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
+          if (!/^https:\\/\\/(www\\.)?(x\\.com|twitter\\.com)\\/[A-Za-z0-9_]{1,15}\\/status\\/\\d{5,25}(?:[/?#].*)?$/.test(commentUrl)) {
             console.error('COMMENT_URL must be a valid X post URL.');
             process.exit(1);
           }
@@ -82,13 +82,20 @@ jobs:
               signal: AbortSignal.timeout(30000)
             });
 
+            const contentType = response.headers.get('content-type') || '';
+            const diagnosticHeaders = {
+              server: response.headers.get('server') || 'unavailable',
+              contentType,
+              retryAfter: response.headers.get('retry-after') || 'none',
+              vercelId: response.headers.get('x-vercel-id') || 'none'
+            };
+            const responseText = await response.text();
             let payload = {};
             try {
-              payload = await response.json();
+              payload = JSON.parse(responseText);
             } catch {
-              throw new Error(
-                'Protected endpoint returned a non-JSON response (HTTP ' + response.status + ').'
-              );
+              console.error('Non-JSON response metadata:', JSON.stringify(diagnosticHeaders));
+              throw new Error('Protected endpoint returned a non-JSON response (HTTP ' + response.status + ').');
             }
 
             if (!response.ok || payload.ok !== true || payload.verified !== true) {
