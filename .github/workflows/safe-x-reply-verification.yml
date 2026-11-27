@@ -60,12 +60,12 @@ jobs:
 
           if (
             endpoint.protocol !== 'https:' ||
-            endpoint.hostname !== 'vibez-landing-page-a864f2580d-git-fix-safe-x-c6f807-vibez-team.vercel.app' ||
+            !/^vibez-landing-page-a864f2580d-[a-z0-9-]+-vibez-team\.vercel\.app$/.test(endpoint.hostname) ||
             endpoint.port !== '' ||
             !['/api/test-x-reply', '/api/test-x-reply/'].includes(endpoint.pathname)
           ) {
             console.error(
-              'VIBEZ_TEST_ENDPOINT_URL must point to the approved VIBEZ Preview host and /api/test-x-reply route.'
+              'VIBEZ_TEST_ENDPOINT_URL must point to a VIBEZ project Preview deployment on the vibez-team.vercel.app domain and /api/test-x-reply route.'
             );
             process.exit(1);
           }
