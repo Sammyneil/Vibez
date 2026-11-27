@@ -1,0 +1,9 @@
+{
+  "name": "vibez",
+  "compatibility_date": "2026-11-26",
+  "assets": {
+    "directory": "./dist"
+  },
+  "preview_urls": true,
+  "previews": {}
+}
